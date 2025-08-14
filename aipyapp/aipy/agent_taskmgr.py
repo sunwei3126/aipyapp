@@ -13,6 +13,15 @@ from loguru import logger
 from .taskmgr import TaskManager
 from .task import Task
 
+# Try to use LangGraph-based implementation
+try:
+    from .langraph_agent import LangGraphAgentManager
+    LANGRAPH_AGENT_AVAILABLE = True
+except ImportError:
+    logger.warning("LangGraph agent not available, using fallback implementation")
+    LANGRAPH_AGENT_AVAILABLE = False
+    LangGraphAgentManager = None
+
 class AgentTask:
     """Agent任务封装"""
     
@@ -41,19 +50,33 @@ class AgentTask:
         }
 
 class AgentTaskManager(TaskManager):
-    """Agent模式任务管理器"""
+    """Agent模式任务管理器 - 支持LangGraph或fallback实现"""
+    
+    def __new__(cls, settings, /, display_manager=None):
+        """Factory method to create appropriate agent manager"""
+        if LANGRAPH_AGENT_AVAILABLE:
+            logger.info("Using LangGraph-based agent manager")
+            return LangGraphAgentManager(settings, display_manager=display_manager)
+        else:
+            logger.info("Using fallback agent manager")
+            # Return the fallback implementation
+            return super().__new__(cls)
     
     def __init__(self, settings, /, display_manager=None):
-        # 强制使用agent显示模式和headless设置
-        super().__init__(settings, display_manager=display_manager)
-        
-        # Agent特有属性
-        self.agent_tasks: Dict[str, AgentTask] = {}
-        self.executor = ThreadPoolExecutor(max_workers=4)  # 支持并发
-        self.log = logger.bind(src='agent_taskmgr')
+        # Only initialize if we're using the fallback (not LangGraph)
+        if not LANGRAPH_AGENT_AVAILABLE:
+            super().__init__(settings, display_manager=display_manager)
+            
+            # Agent特有属性
+            self.agent_tasks: Dict[str, AgentTask] = {}
+            self.executor = ThreadPoolExecutor(max_workers=4)  # 支持并发
+            self.log = logger.bind(src='agent_taskmgr_fallback')
         
     async def submit_task(self, instruction: str, metadata: Dict[str, Any] = None) -> str:
-        """提交新任务"""
+        """提交新任务 - fallback implementation"""
+        if LANGRAPH_AGENT_AVAILABLE:
+            raise RuntimeError("This method should not be called when LangGraph is available")
+            
         task_id = str(uuid.uuid4())
         
         try:
