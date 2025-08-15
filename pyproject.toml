@@ -27,6 +27,7 @@ dependencies = [
   "charset-normalizer>=3.4.2",
   "fastapi>=0.116.1",
   "psutil>=7.0.0",
+  "langgraph>=0.2.0",
 ]
 
 [project.optional-dependencies]
